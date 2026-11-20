@@ -32,8 +32,8 @@ Aynı kod iki şekilde çalışır:
 
 ### Hazır .exe ile (önerilen)
 1. Bu sayfada sağdaki **Releases** bölümüne gir (yoksa **Actions → Windows sürümü derle → son çalışma → Artifacts**).
-2. `AracFiloYonetimi-…-nsis.exe` → kurulum yapar, masaüstüne kısayol koyar.
-   `AracFiloYonetimi-…-portable.exe` → kurulumsuz çalışır (USB'de taşınabilir).
+2. `AracFiloYonetimi-Kurulum-….exe` → kurulum yapar, masaüstüne kısayol koyar.
+   `AracFiloYonetimi-Tasinabilir-….exe` → kurulumsuz çalışır (USB'de taşınabilir).
 3. İlk açılışta Windows SmartScreen "Tanınmayan uygulama" diyebilir: **Ek bilgi → Yine de çalıştır**. (Kod imzalı olmadığı için normal.)
 
 > **Ortak klasör / taşınabilir veri:** `.exe` dosyasının yanına `veri` adında bir klasör açarsan uygulama verileri oraya yazar.
@@ -49,12 +49,7 @@ npm run dist         # dist/ altına Windows .exe üretir
 Gerekli: [Node.js 20+](https://nodejs.org)
 
 ### Yeni sürüm yayınlama
-```bash
-# package.json içindeki "version" değerini artır, sonra:
-git tag v1.0.1
-git push --tags
-```
-GitHub Actions Windows'ta derler ve `.exe` dosyalarını Releases'e ekler.
+`package.json` içindeki `"version"` değerini artırıp push et, sonra **Actions → Windows sürümü derle → Run workflow**. GitHub Actions Windows'ta derler ve `.exe` dosyalarını o sürümün Release'ine ekler.
 
 ---
 
