@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'">
+  <title>Araç Filo Yönetimi</title>
+  <link rel="icon" href="icon.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <span class="logo">🚘</span>
+        <div>
+          <div class="brand-title" id="brandTitle">ARAÇ FİLO YÖNETİMİ</div>
+          <div class="brand-sub" id="brandSub">Filo Yönetim Sistemi</div>
+        </div>
+      </div>
+      <nav class="nav" id="nav"></nav>
+    </aside>
+    <main class="main">
+      <header class="top">
+        <div>
+          <button class="btn secondary small mobilemenu" id="menuBtn">☰ Menü</button>
+          <b id="companyName">Filo Yönetim Sistemi</b><br>
+          <small id="modeLabel"></small>
+        </div>
+        <div class="muted" id="clock"></div>
+      </header>
+      <div class="content" id="view"></div>
+      <footer class="footer" id="footer"></footer>
+    </main>
+  </div>
+  <div id="modalroot"></div>
+  <script src="storage.js"></script>
+  <script src="modules.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
