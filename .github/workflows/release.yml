@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        brand: [dardanel, tahsildaroglu]
+        brand: [dardanel]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -64,5 +64,4 @@ jobs:
           name: Araç Filo Yönetimi ${{ steps.ver.outputs.v }}
           body: |
             **Dardanel:** AracFilo-Dardanel-Kurulum / -Tasinabilir
-            **Tahsildaroğlu:** AracFilo-Tahsildaroglu-Kurulum / -Tasinabilir
           files: out/*.exe

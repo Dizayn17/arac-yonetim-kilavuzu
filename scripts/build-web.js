@@ -17,7 +17,7 @@ for (const b of brands) {
   console.log('✓', b.name, '->', path.relative(ROOT, dst));
 }
 
-// Kök: şirket seçimi
+// Kök: tek marka varsa doğrudan ona yönlendir, birden fazlaysa şirket seçimi
 fs.copyFileSync(path.join(ROOT, 'app', 'dizayn17-icon.svg'), path.join(OUT, 'dizayn17-icon.svg'));
 fs.copyFileSync(path.join(ROOT, 'app', 'dizayn17-logo.png'), path.join(OUT, 'dizayn17-logo.png'));
 const cards = brands.map(b => {
@@ -26,7 +26,7 @@ const cards = brands.map(b => {
 }).join('\n      ');
 fs.writeFileSync(path.join(OUT, 'index.html'), `<!doctype html>
 <html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Araç Filo Yönetimi</title><link rel="icon" href="dizayn17-icon.svg" type="image/svg+xml">
+<title>Araç Filo Yönetimi</title>${brands.length === 1 ? `<meta http-equiv="refresh" content="0; url=${brands[0].id}/">` : ''}<link rel="icon" href="dizayn17-icon.svg" type="image/svg+xml">
 <style>
   :root{color-scheme:light dark;font-family:Inter,system-ui,"Segoe UI",sans-serif}
   body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;background:#f3f6fb;color:#172b4d;padding:24px}
