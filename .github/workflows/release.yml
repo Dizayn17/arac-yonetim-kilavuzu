@@ -1,4 +1,4 @@
-# Windows kurulum (.exe) ve taşınabilir sürümü derler.
+# Her şirket için ayrı Windows kurulum (.exe) ve taşınabilir sürüm derler.
 # Çalıştırmak için: Actions > "Windows sürümü derle" > Run workflow (veya v* etiketi gönder).
 # Release etiketi package.json içindeki version değerinden alınır.
 name: Windows sürümü derle
@@ -14,24 +14,55 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        brand: [dardanel, tahsildaroglu]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
       - run: npm install
-      - run: npx electron-builder --win --publish never
+      - name: Marka ayarlarını uygula
+        id: brand
+        shell: bash
+        run: |
+          node scripts/apply-brand.js ${{ matrix.brand }}
+          node -e "const b=require('./brands/${{ matrix.brand }}/brand.json');for(const k of ['productName','appId','artifact'])console.log(k+'='+b[k])" >> "$GITHUB_OUTPUT"
+      - name: Derle
+        shell: bash
+        run: >
+          npx electron-builder --win --publish never
+          -c.productName="${{ steps.brand.outputs.productName }}"
+          -c.appId="${{ steps.brand.outputs.appId }}"
+          -c.extraMetadata.brandId="${{ matrix.brand }}"
+          -c.nsis.shortcutName="${{ steps.brand.outputs.productName }}"
+          -c.nsis.artifactName="${{ steps.brand.outputs.artifact }}-Kurulum-\${version}.\${ext}"
+          -c.portable.artifactName="${{ steps.brand.outputs.artifact }}-Tasinabilir-\${version}.\${ext}"
       - uses: actions/upload-artifact@v4
         with:
-          name: AracFiloYonetimi-Windows
+          name: exe-${{ matrix.brand }}
           path: dist/*.exe
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: exe-*
+          path: out
+          merge-multiple: true
       - name: Sürüm numarasını oku
         id: ver
-        shell: bash
         run: echo "v=v$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
-      - name: Release'e ekle
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.ver.outputs.v }}
           name: Araç Filo Yönetimi ${{ steps.ver.outputs.v }}
-          files: dist/*.exe
+          body: |
+            **Dardanel:** AracFilo-Dardanel-Kurulum / -Tasinabilir
+            **Tahsildaroğlu:** AracFilo-Tahsildaroglu-Kurulum / -Tasinabilir
+          files: out/*.exe

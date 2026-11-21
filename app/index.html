@@ -35,7 +35,7 @@
             <button class="btn secondary small icon-btn" data-theme-toggle type="button" title="Koyu temaya geç" aria-label="Koyu temaya geç">🌙</button>
             <button class="btn secondary small" id="logoutBtn" hidden>Çıkış</button>
           </div>
-          <img src="dardanel-logo.svg" alt="Dardanel" class="company-logo">
+          <img data-company-logo alt="" class="company-logo">
         </div>
       </header>
       <div class="content" id="view"></div>
@@ -46,7 +46,7 @@
   <div class="login-screen" id="loginScreen" hidden>
     <button class="btn secondary small icon-btn login-theme" data-theme-toggle type="button" title="Koyu temaya geç" aria-label="Koyu temaya geç">🌙</button>
     <form class="login-card" id="loginForm" autocomplete="on">
-      <img src="dardanel-logo.svg" alt="Dardanel" class="login-logo">
+      <img data-company-logo alt="" class="login-logo">
       <h1>Araç Filo Yönetimi</h1>
       <p>Devam etmek için kurumsal hesabınızla giriş yapın.</p>
       <label for="loginEmail">E-posta</label>
@@ -59,6 +59,7 @@
       <div class="login-foot"><img src="dizayn17-logo.png" alt="Dizayn17"></div>
     </form>
   </div>
+  <script src="brand.js"></script>
   <script src="config.js"></script>
   <script src="vendor/supabase.js"></script>
   <script src="storage.js"></script>

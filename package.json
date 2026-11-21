@@ -1,17 +1,17 @@
 {
   "name": "arac-filo-yonetimi",
   "productName": "Araç Filo Yönetimi",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Araç filo yönetimi: araç kartları, zimmet, belge, yakıt, bakım, gider, uyarı ve raporlar. Windows masaüstü + web sürümü.",
   "main": "main.js",
   "author": "Onur Türkyılmaz",
   "license": "MIT",
   "private": true,
   "scripts": {
-    "start": "electron .",
-    "web": "npx --yes serve app -l 8080",
-    "dist": "electron-builder --win",
-    "dist:portable": "electron-builder --win portable"
+    "start": "node scripts/apply-brand.js dardanel && electron .",
+    "start:tahsildaroglu": "node scripts/apply-brand.js tahsildaroglu && electron .",
+    "web": "node scripts/build-web.js && npx --yes serve dist-web -l 8080",
+    "dist": "electron-builder --win"
   },
   "devDependencies": {
     "electron": "^33.2.0",
@@ -41,10 +41,11 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "shortcutName": "Araç Filo Yönetimi",
-      "artifactName": "AracFiloYonetimi-Kurulum-${version}.${ext}"
+      "artifactName": "AracFilo-Kurulum-${version}.${ext}"
     },
     "portable": {
-      "artifactName": "AracFiloYonetimi-Tasinabilir-${version}.${ext}"
+      "artifactName": "AracFilo-Tasinabilir-${version}.${ext}"
     }
-  }
+  },
+  "brandId": "dardanel"
 }

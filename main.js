@@ -5,18 +5,21 @@ const path = require('path');
 const fs = require('fs');
 
 const BACKUP_KEEP_DAYS = 30;
+// Hangi şirket için derlendiği (electron-builder extraMetadata.brandId ile yazılır)
+const BRAND_ID = (() => { try { return require('./package.json').brandId || 'dardanel'; } catch (e) { return 'dardanel'; } })();
+const DATA_FOLDER = BRAND_ID === 'dardanel' ? 'AracFiloYonetimi' : 'AracFiloYonetimi-' + BRAND_ID;
 
 // Tarayıcı kimliğinde (User-Agent) Türkçe karakter olmasın: uygulama adı "Araç Filo Yönetimi"
 // HTTP başlığına Latin-1 olarak gidiyor ve Supabase oturum kaydında UTF-8 hatası veriyordu.
 app.userAgentFallback = app.userAgentFallback
-  .split(app.getName()).join('AracFiloYonetimi')
+  .split(app.getName()).join('AracFiloYonetimi-' + BRAND_ID)
   .replace(/[^\x20-\x7E]/g, '');
 let dataDir, dataFile, backupDir;
 
 function initPaths() {
   // Taşınabilir kullanım: exe'nin yanında "veri" klasörü varsa orayı kullan (ör. ağ paylaşımı / USB)
   const portable = path.join(path.dirname(app.getPath('exe')), 'veri');
-  dataDir = fs.existsSync(portable) ? portable : path.join(app.getPath('documents'), 'AracFiloYonetimi');
+  dataDir = fs.existsSync(portable) ? portable : path.join(app.getPath('documents'), DATA_FOLDER);
   backupDir = path.join(dataDir, 'yedekler');
   dataFile = path.join(dataDir, 'filo-veri.json');
   fs.mkdirSync(backupDir, { recursive: true });

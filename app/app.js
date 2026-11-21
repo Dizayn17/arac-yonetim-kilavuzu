@@ -2,6 +2,12 @@
 /* Araç Filo Yönetimi — uygulama mantığı (web + masaüstü ortak) */
 (function () {
   const MODULES = window.MODULES, PAGES = window.PAGES, Store = window.Store;
+  const BRAND = window.FILO_BRAND || { id: 'genel', company: '', defaultTitle: 'Filo Yönetim Sistemi', logo: '' };
+  // Şirket logosu ve sekme başlığı markaya göre
+  document.querySelectorAll('img[data-company-logo]').forEach(img => {
+    if (BRAND.logo) { img.src = BRAND.logo; img.alt = BRAND.company; } else img.hidden = true;
+  });
+  if (BRAND.company) document.title = 'Araç Filo Yönetimi • ' + BRAND.company;
   const COST_MODULES = MODULES.filter(m => m.cost);
   const DAY = 86400000;
 
@@ -9,7 +15,7 @@
   const defaultState = () => ({
     version: 1,
     records: {},
-    settings: { company: 'Filo Yönetim Sistemi', alertDays: 30, kmAlert: 1000, includeLeasing: false }
+    settings: { company: BRAND.defaultTitle || 'Filo Yönetim Sistemi', alertDays: 30, kmAlert: 1000, includeLeasing: false }
   });
 
   let state = defaultState();
@@ -495,7 +501,7 @@
   }
   async function saveSettings() {
     const s = { ...state.settings };
-    s.company = $('setCompany').value.trim() || 'Filo Yönetim Sistemi';
+    s.company = $('setCompany').value.trim() || BRAND.defaultTitle || 'Filo Yönetim Sistemi';
     s.alertDays = Math.max(1, Math.min(365, Number($('setDays').value) || 30));
     s.kmAlert = Math.max(0, Number($('setKm').value) || 0);
     s.includeLeasing = $('setLeasing').value === '1';

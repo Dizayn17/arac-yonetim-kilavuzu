@@ -4,10 +4,23 @@ Araç kartları, zimmet, sürücüler, belge/poliçe takibi, yakıt, bakım, las
 
 Aynı kod iki şekilde çalışır:
 
-| Sürüm | Nasıl açılır |
-|---|---|
-| **Web (internet)** | https://dizayn17.github.io/arac-yonetim-kilavuzu/ |
-| **Windows masaüstü** | `.exe` kurulum veya taşınabilir sürüm (Releases) |
+Uygulama iki şirket için ayrı kopyalar halinde yayınlanır. Her kopyanın **kendi logosu, kendi veritabanı ve kendi kullanıcıları** vardır.
+
+| Şirket | Web | Windows (.exe) | Veritabanı (Supabase) |
+|---|---|---|---|
+| **Dardanel** | https://dizayn17.github.io/arac-yonetim-kilavuzu/dardanel/ | `AracFilo-Dardanel-Kurulum-….exe` | `arac-filo-yonetimi` |
+| **Tahsildaroğlu** | https://dizayn17.github.io/arac-yonetim-kilavuzu/tahsildaroglu/ | `AracFilo-Tahsildaroglu-Kurulum-….exe` | `arac-filo-tahsildaroglu` |
+
+Kök adres (https://dizayn17.github.io/arac-yonetim-kilavuzu/) şirket seçim ekranıdır. `.exe` dosyaları **Releases** bölümündedir.
+
+### Marka yapısı
+Kod tek (`app/`), şirkete özel dosyalar `brands/<şirket>/` altındadır:
+- `brand.js` – şirket adı, logo dosyası
+- `config.js` – Supabase adresi ve publishable key
+- `company-logo.*` – sağ üst ve giriş ekranındaki şirket logosu
+- `brand.json` – Windows uygulama adı, kimliği ve dosya adı
+
+Yeni şirket eklemek için `brands/` altına aynı dosyalarla bir klasör aç, `release.yml` içindeki `brand:` listesine ekle ve Supabase'de `supabase/schema.sql` ile yeni bir proje kur.
 
 **Veriler:** İki sürüm de aynı **Supabase (PostgreSQL) bulut veritabanını** kullanır. Kullanıcılar e-posta + şifre ile giriş yapar, değişiklikler herkese anında yansır, işlem geçmişi sunucuda tutulur. Kurulum: [docs/SUPABASE_KURULUM.md](docs/SUPABASE_KURULUM.md)
 
@@ -47,8 +60,9 @@ Aynı kod iki şekilde çalışır:
 git clone https://github.com/Dizayn17/arac-yonetim-kilavuzu.git
 cd arac-yonetim-kilavuzu
 npm install
-npm start            # uygulamayı açar
-npm run dist         # dist/ altına Windows .exe üretir
+npm start                       # Dardanel kopyasını açar
+npm run start:tahsildaroglu     # Tahsildaroğlu kopyasını açar
+npm run web                     # iki web kopyasını http://localhost:8080 adresinde açar
 ```
 Gerekli: [Node.js 20+](https://nodejs.org)
 

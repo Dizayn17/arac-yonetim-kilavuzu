@@ -6,3 +6,9 @@ filo-veri.json
 filo_yedek_*.json
 .DS_Store
 Thumbs.db
+
+# Marka dosyaları scripts/apply-brand.js ile app/ içine kopyalanır
+app/brand.js
+app/config.js
+app/company-logo.*
+dist-web/

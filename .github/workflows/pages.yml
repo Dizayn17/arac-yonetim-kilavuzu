@@ -4,7 +4,7 @@ name: Web sürümünü yayınla
 on:
   push:
     branches: [main]
-    paths: ['app/**', '.github/workflows/pages.yml']
+    paths: ['app/**', 'brands/**', 'scripts/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -27,8 +27,12 @@ jobs:
       - uses: actions/configure-pages@v5
         with:
           enablement: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node scripts/build-web.js
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: app
+          path: dist-web
       - id: deployment
         uses: actions/deploy-pages@v4

@@ -16,7 +16,9 @@
  *   onRemoteChange(cb)
  */
 (function () {
-  const LOCAL_KEY = 'arac-filo-yonetimi-v1';
+  // Aynı alan adında birden fazla şirket kopyası çalışabildiği için anahtarlar markaya göre ayrılır
+  const BRAND_ID = (window.FILO_BRAND && window.FILO_BRAND.id) || 'genel';
+  const LOCAL_KEY = 'arac-filo-yonetimi-v1' + (BRAND_ID === 'dardanel' ? '' : '-' + BRAND_ID);
   const cfg = window.FILO_CONFIG || {};
   const desktop = window.filoDesktop;
   const useCloud = !!(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
@@ -24,7 +26,7 @@
   // ---------------- Bulut (Supabase) ----------------
   function cloudStore() {
     const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
-      auth: { persistSession: true, autoRefreshToken: true, storageKey: 'filo-auth' }
+      auth: { persistSession: true, autoRefreshToken: true, storageKey: 'filo-auth-' + BRAND_ID }
     });
     const S = {
       mode: 'cloud', user: null, role: null, client: sb,
