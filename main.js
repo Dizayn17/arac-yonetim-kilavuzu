@@ -5,6 +5,12 @@ const path = require('path');
 const fs = require('fs');
 
 const BACKUP_KEEP_DAYS = 30;
+
+// Tarayıcı kimliğinde (User-Agent) Türkçe karakter olmasın: uygulama adı "Araç Filo Yönetimi"
+// HTTP başlığına Latin-1 olarak gidiyor ve Supabase oturum kaydında UTF-8 hatası veriyordu.
+app.userAgentFallback = app.userAgentFallback
+  .split(app.getName()).join('AracFiloYonetimi')
+  .replace(/[^\x20-\x7E]/g, '');
 let dataDir, dataFile, backupDir;
 
 function initPaths() {
