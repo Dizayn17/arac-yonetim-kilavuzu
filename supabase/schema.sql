@@ -91,7 +91,7 @@ drop trigger if exists filo_settings_audit on public.filo_settings;
 create trigger filo_settings_audit after update on public.filo_settings
   for each row execute function public.filo_audit_trigger();
 
-create or replace function public.filo_touch() returns trigger language plpgsql as $$
+create or replace function public.filo_touch() returns trigger language plpgsql set search_path = public as $$
 begin
   new.updated_at := now();
   new.updated_by := auth.jwt() ->> 'email';
@@ -157,8 +157,12 @@ create policy "admin gorur"   on public.filo_users for select to authenticated u
 
 -- Anonim (giriş yapmamış) erişimi tamamen kapat
 revoke all on public.filo_users, public.filo_records, public.filo_settings, public.filo_audit from anon;
-revoke execute on function public.filo_reset(), public.filo_import(jsonb) from anon, public;
-grant execute on function public.filo_reset(), public.filo_import(jsonb), public.filo_my_role() to authenticated;
+revoke insert, update, delete, truncate on public.filo_audit from authenticated;
+revoke insert, update, delete, truncate on public.filo_users from authenticated;
+revoke truncate on public.filo_records, public.filo_settings from authenticated;
+revoke execute on function public.filo_reset(), public.filo_import(jsonb), public.filo_my_role(), public.filo_is_member(), public.filo_is_admin() from anon, public;
+revoke execute on function public.filo_audit_trigger(), public.filo_touch() from anon, authenticated, public;
+grant execute on function public.filo_reset(), public.filo_import(jsonb), public.filo_my_role(), public.filo_is_member(), public.filo_is_admin() to authenticated;
 
 -- 9) Canlı güncelleme (başka kullanıcının değişikliği ekrana anında düşer)
 do $$ begin
