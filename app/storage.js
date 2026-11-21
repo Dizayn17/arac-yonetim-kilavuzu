@@ -24,6 +24,12 @@
   const useCloud = !!(cfg.supabaseUrl && cfg.supabaseAnonKey && window.supabase);
 
   // ---------------- Bulut (Supabase) ----------------
+  // E-postadaki bağlantıdan gelindiyse (şifre sıfırlama / davet / hata) bunu istemci URL'yi okumadan önce yakala
+  const AUTH_HASH = new URLSearchParams((location.hash || '').replace(/^#/, ''));
+  const AUTH_QUERY = new URLSearchParams(location.search || '');
+  const LINK_TYPE = AUTH_HASH.get('type') || AUTH_QUERY.get('type');
+  const LINK_ERROR = AUTH_HASH.get('error_description') || AUTH_QUERY.get('error_description');
+
   function cloudStore() {
     const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey, {
       auth: { persistSession: true, autoRefreshToken: true, storageKey: 'filo-auth-' + BRAND_ID }
@@ -32,9 +38,26 @@
       mode: 'cloud', user: null, role: null, client: sb,
 
       async init() {
+        if (LINK_ERROR) {
+          history.replaceState(null, '', location.pathname);
+          const expired = /expired|invalid/i.test(LINK_ERROR);
+          throw new Error(expired ? 'E-postadaki bağlantının süresi dolmuş ya da daha önce kullanılmış. "Şifremi unuttum" ile yeni bağlantı isteyin.' : LINK_ERROR);
+        }
         const { data } = await sb.auth.getSession();
         if (!data.session) return { needLogin: true };
+        if (LINK_TYPE === 'recovery' || LINK_TYPE === 'invite') {
+          history.replaceState(null, '', location.pathname);
+          S.user = data.session.user;
+          return { needLogin: false, setPassword: LINK_TYPE };
+        }
         return S._afterLogin(data.session.user);
+      },
+
+      // E-posta bağlantısıyla gelen kullanıcı için yeni şifre kaydeder ve oturumu tamamlar
+      async setNewPassword(password) {
+        const { data, error } = await sb.auth.updateUser({ password });
+        if (error) throw new Error(/should be different/i.test(error.message) ? 'Yeni şifre eskisiyle aynı olamaz.' : /at least/i.test(error.message) ? 'Şifre en az 6 karakter olmalı.' : error.message);
+        return S._afterLogin(data.user);
       },
 
       async _afterLogin(user) {
@@ -58,7 +81,10 @@
       async logout() { await sb.auth.signOut(); S.user = null; S.role = null; },
 
       async resetPassword(email) {
-        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.href.split('#')[0] });
+        // Masaüstü uygulamasında (file://) bağlantı web sürümüne yönlenir
+        const brand = window.FILO_BRAND || {};
+        const redirectTo = location.protocol === 'file:' ? brand.webUrl : location.href.split('#')[0].split('?')[0];
+        const { error } = await sb.auth.resetPasswordForEmail(email, redirectTo ? { redirectTo } : {});
         if (error) throw new Error(error.message);
       },
 

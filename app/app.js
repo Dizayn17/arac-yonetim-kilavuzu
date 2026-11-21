@@ -62,12 +62,12 @@
   }
 
   // ---------- Diyaloglar (Electron'da window.prompt çalışmadığı için özel) ----------
-  function dialog({ title, message, input = false, okText = 'Tamam', cancelText = 'Vazgeç', danger = false }) {
+  function dialog({ title, message, input = false, okText = 'Tamam', cancelText = 'Vazgeç', danger = false, password = false }) {
     return new Promise(resolve => {
       const box = document.createElement('div');
       box.className = 'modalback'; box.style.zIndex = 15;
       box.innerHTML = `<div class="modal narrow"><h2>${esc(title)}</h2><p style="margin-bottom:16px">${esc(message)}</p>
-        ${input ? '<input id="dlgInput" style="width:100%;margin-bottom:16px" autocomplete="off">' : ''}
+        ${input ? `<input id="dlgInput" type="${password ? 'password' : 'text'}" style="width:100%;margin-bottom:16px" autocomplete="${password ? 'new-password' : 'off'}">` : ''}
         <div class="actions"><button class="btn ${danger ? 'danger' : ''}" data-r="ok">${esc(okText)}</button>
         ${cancelText ? `<button class="btn secondary" data-r="cancel">${esc(cancelText)}</button>` : ''}</div></div>`;
       document.body.appendChild(box);
@@ -579,11 +579,27 @@
     try { applyLoaded(await Store.loadAll()); render(); } catch (e) { console.error(e); }
   }
 
+  // E-postadaki şifre sıfırlama / davet bağlantısından gelindiğinde yeni şifre iste
+  async function askNewPassword(kind) {
+    const title = kind === 'invite' ? 'Hoş geldiniz — şifrenizi belirleyin' : 'Yeni şifre belirleyin';
+    for (;;) {
+      const p1 = await dialog({ title, message: 'En az 8 karakter; harf ve rakam içeren bir şifre seçin.', input: true, okText: 'Devam', cancelText: 'Vazgeç' , password: true });
+      if (p1 === null) { await Store.logout(); showLogin(); return false; }
+      if (p1.length < 8) { await alertDlg('Şifre çok kısa', 'Şifre en az 8 karakter olmalı.'); continue; }
+      const p2 = await dialog({ title, message: 'Şifreyi tekrar yazın.', input: true, okText: 'Kaydet', cancelText: 'Vazgeç', password: true });
+      if (p2 === null) continue;
+      if (p1 !== p2) { await alertDlg('Şifreler eşleşmiyor', 'İki şifre aynı olmalı, tekrar deneyin.'); continue; }
+      try { await Store.setNewPassword(p1); toast('Şifreniz kaydedildi'); return true; }
+      catch (err) { await alertDlg('Şifre kaydedilemedi', err.message); if (/yetkili değil/.test(err.message)) { showLogin(err.message); return false; } }
+    }
+  }
+
   (async function boot() {
     render();
     try {
       const r = await Store.init();
       if (r.needLogin) { showLogin(); return; }
+      if (r.setPassword && !(await askNewPassword(r.setPassword))) return;
       await loadAndRender();
     } catch (err) { showLogin(err.message); return; }
     Store.onRemoteChange(remoteRefresh);
