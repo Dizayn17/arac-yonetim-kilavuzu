@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co">
   <title>Araç Filo Yönetimi</title>
   <link rel="icon" href="icon.png">
   <link rel="stylesheet" href="style.css">
@@ -27,13 +27,29 @@
           <b id="companyName">Filo Yönetim Sistemi</b><br>
           <small id="modeLabel"></small>
         </div>
-        <div class="top-right"><div class="muted" id="clock"></div><img src="dardanel-logo.svg" alt="Dardanel" class="company-logo"></div>
+        <div class="top-right"><div class="muted" id="clock"></div><button class="btn secondary small" id="logoutBtn" hidden>Çıkış</button><img src="dardanel-logo.svg" alt="Dardanel" class="company-logo"></div>
       </header>
       <div class="content" id="view"></div>
       <footer class="footer" id="footer"></footer>
     </main>
   </div>
   <div id="modalroot"></div>
+  <div class="login-screen" id="loginScreen" hidden>
+    <form class="login-card" id="loginForm" autocomplete="on">
+      <img src="dardanel-logo.svg" alt="Dardanel" class="login-logo">
+      <h1>Araç Filo Yönetimi</h1>
+      <p>Devam etmek için kurumsal hesabınızla giriş yapın.</p>
+      <label for="loginEmail">E-posta</label>
+      <input id="loginEmail" type="email" autocomplete="username" required>
+      <label for="loginPassword">Şifre</label>
+      <input id="loginPassword" type="password" autocomplete="current-password" required>
+      <div class="login-error" id="loginError" role="alert"></div>
+      <button class="btn" id="loginBtn" type="submit">Giriş Yap</button>
+      <button class="linkbtn" id="forgotBtn" type="button">Şifremi unuttum</button>
+    </form>
+  </div>
+  <script src="config.js"></script>
+  <script src="vendor/supabase.js"></script>
   <script src="storage.js"></script>
   <script src="modules.js"></script>
   <script src="app.js"></script>

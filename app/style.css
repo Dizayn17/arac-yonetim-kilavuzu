@@ -79,6 +79,17 @@ tr:last-child td{border-bottom:0}
 .filelabel{display:inline-block;cursor:pointer}
 .filelabel input{display:none}
 .toast{position:fixed;bottom:20px;right:20px;background:#172b4d;color:#fff;padding:11px 16px;border-radius:10px;font-size:13px;z-index:20;box-shadow:0 8px 30px #0003}
+.login-screen{position:fixed;inset:0;z-index:30;background:linear-gradient(135deg,#eaf1ff,#f3f6fb);display:flex;align-items:center;justify-content:center;padding:18px}
+.login-screen[hidden]{display:none}
+.login-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:30px;width:min(380px,100%);display:flex;flex-direction:column;gap:8px;box-shadow:0 20px 60px #071e3822}
+.login-card h1{font-size:21px;margin:10px 0 0}.login-card p{margin-bottom:10px}
+.login-card label{font-size:12px;font-weight:700;color:#52627b;margin-top:6px}
+.login-card .btn{margin-top:12px;padding:11px}
+.login-logo{height:36px;width:auto;align-self:flex-start;border-radius:4px}
+.login-error{color:var(--bad);font-size:12px;min-height:16px}
+.linkbtn{background:none;border:0;color:var(--primary);font-size:12px;padding:6px;align-self:center}
+body.busy{cursor:progress}body.busy .content{opacity:.7;pointer-events:none}
+[hidden]{display:none!important}
 @media(max-width:1050px){.cards{grid-template-columns:repeat(2,1fr)}.panels{grid-template-columns:1fr}}
 @media(max-width:750px){
   .sidebar{position:fixed;left:-280px;z-index:5;box-shadow:0 10px 40px #172b4d30;transition:left .2s}

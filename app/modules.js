@@ -185,7 +185,7 @@
   const PAGES = [
     { id: 'reports', group: 'Yönetim', name: 'Raporlama ve Analiz', icon: '📊' },
     { id: 'alerts', group: 'Yönetim', name: 'Bildirim ve Hatırlatmalar', icon: '🔔' },
-    { id: 'settings', group: 'Yönetim', name: 'Ayarlar ve Yedekleme', icon: '⚙️' }
+    { id: 'settings', group: 'Yönetim', name: 'Ayarlar', icon: '⚙️' }
   ];
 
   window.MODULES = MODULES;

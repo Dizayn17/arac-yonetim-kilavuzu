@@ -9,17 +9,16 @@
   const defaultState = () => ({
     version: 1,
     records: {},
-    settings: { company: 'Filo Yönetim Sistemi', alertDays: 30, kmAlert: 1000, includeLeasing: false },
-    audit: [],
-    lastBackup: null
+    settings: { company: 'Filo Yönetim Sistemi', alertDays: 30, kmAlert: 1000, includeLeasing: false }
   });
 
   let state = defaultState();
-  const loaded = Store.load();
-  if (loaded && loaded.records) {
-    state = { ...state, ...loaded, settings: { ...state.settings, ...(loaded.settings || {}) } };
+  let auditCache = [];
+  function applyLoaded(loaded) {
+    state = { ...defaultState(), records: loaded.records || {}, settings: { ...defaultState().settings, ...(loaded.settings || {}) } };
+    for (const m of MODULES) if (!Array.isArray(state.records[m.id])) state.records[m.id] = [];
   }
-  for (const m of MODULES) if (!Array.isArray(state.records[m.id])) state.records[m.id] = [];
+  for (const m of MODULES) state.records[m.id] = [];
 
   const ui = { page: 'dashboard', query: '', vehicle: '', sort: null, sortDir: 1, from: '', to: '' };
 
@@ -36,13 +35,19 @@
   const vehicleById = id => state.records.vehicles.find(v => v.id === id);
   const vehicleName = id => { const v = vehicleById(id); return v ? `${v.plate} · ${v.brand || ''} ${v.model || ''}`.trim() : '—'; };
 
-  function persist() {
-    if (!Store.save(state)) toast('Kayıt yapılamadı! Depolama dolu olabilir; hemen JSON yedeği alın.', 6000);
+  const isAdmin = () => Store.role === 'admin';
+  // Sunucu/dosya işlemini çalıştırır; hata olursa kullanıcıya gösterir ve veriyi yeniden yükler
+  async function run(fn, okMsg) {
+    busy(true);
+    try { await fn(); if (okMsg) toast(okMsg); return true; }
+    catch (err) {
+      console.error(err);
+      await alertDlg('İşlem tamamlanamadı', err.message || String(err));
+      try { applyLoaded(await Store.loadAll()); render(); } catch (e) { /* yoksay */ }
+      return false;
+    } finally { busy(false); }
   }
-  function log(action, details) {
-    state.audit.unshift({ date: new Date().toISOString(), action, details });
-    state.audit = state.audit.slice(0, 500);
-  }
+  function busy(on) { document.body.classList.toggle('busy', on); }
   function toast(msg, ms = 2500) {
     const t = document.createElement('div');
     t.className = 'toast'; t.textContent = msg;
@@ -163,20 +168,10 @@
   }
 
   // ---------- Sayfalar ----------
-  function backupNotice() {
-    if (Store.mode === 'desktop') return '';
-    const last = state.lastBackup;
-    const age = last ? Math.floor((Date.now() - new Date(last)) / DAY) : null;
-    if (age !== null && age < 7) return '';
-    return `<div class="notice">⚠️ ${last ? `Son JSON yedeği ${age} gün önce alındı.` : 'Henüz JSON yedeği alınmadı.'}
-      Bu web sürümünde veriler yalnızca bu tarayıcıda durur. <a href="#" data-action="backup">Şimdi yedek al</a>.</div>`;
-  }
-
   function dashboard() {
     const v = state.records.vehicles, alerts = allAlerts(), c = costTotals();
     let h = heading('Filo Gösterge Paneli', 'Araç, operasyon, maliyet ve yaklaşan işlemler tek ekranda.',
       `<button class="btn" data-action="new" data-module="vehicles">+ Yeni Araç</button>`);
-    h += backupNotice();
     h += '<div class="cards">' + [
       ['Toplam Araç', v.length],
       ['Aktif Araç', v.filter(x => x.status === 'Aktif').length],
@@ -281,42 +276,71 @@
         : '<div class="empty">Yaklaşan veya geciken işlem bulunmuyor.</div>'}</div>`;
   }
 
+  function dataPanel() {
+    if (Store.mode === 'cloud') {
+      return `<div class="panel"><h2>Veri Yönetimi</h2>
+        <div class="notice ok">☁️ Veriler Supabase bulut veritabanında tutulur. Kaydettiğiniz her değişiklik anında sunucuya yazılır ve diğer kullanıcılara canlı yansır; ayrıca yedek almanıza gerek yoktur.</div>
+        ${isAdmin() ? `<div class="actions">
+          <label class="btn secondary filelabel">⬆ Eski yedekten veri aktar (JSON)<input type="file" id="importFile" accept=".json,application/json"></label>
+          <button class="btn danger" data-action="reset">Tüm Kayıtları Sil</button></div>
+          <p style="margin-top:10px">İçe aktarma, eski tarayıcı/masaüstü sürümünden indirilmiş JSON dosyasındaki kayıtları veritabanına ekler (aynı kimlikli kayıtların üzerine yazar).</p>`
+          : '<p>Toplu içe aktarma ve silme işlemleri yalnızca yöneticiye açıktır.</p>'}</div>`;
+    }
+    const info = Store.info();
+    return `<div class="panel"><h2>Veri Yönetimi</h2>
+      <div class="notice">${Store.mode === 'desktop'
+        ? `Yerel mod: veriler bu dosyada tutulur: <b>${esc(info.dataFile)}</b>. Her gün otomatik yedek alınır.`
+        : 'Yerel deneme modu: Supabase bağlantısı tanımlanmadığı için veriler bu tarayıcıda tutuluyor.'}
+        Ortak bulut veritabanını kullanmak için <b>config.js</b> dosyasına Supabase bilgilerini girin.</div>
+      <div class="actions">
+        <label class="btn secondary filelabel">⬆ JSON dosyasından aktar<input type="file" id="importFile" accept=".json,application/json"></label>
+        ${Store.mode === 'desktop' ? '<button class="btn secondary" data-action="openFolder">📂 Veri Klasörünü Aç</button>' : ''}
+        <button class="btn danger" data-action="reset">Tüm Kayıtları Sil</button></div></div>`;
+  }
+
   function settingsPage() {
-    const info = Store.info(), s = state.settings;
-    return heading('Ayarlar ve Yedekleme', 'Genel ayarlar, veri yedekleme ve işlem geçmişi.') +
-      `<div class="panel"><h2>Genel Ayarlar</h2><div class="formgrid">
-        <div class="field"><label>Şirket / Sistem Adı</label><input id="setCompany" value="${esc(s.company)}"></div>
-        <div class="field"><label>Kaç gün önce uyarı verilsin? (1–365)</label><input id="setDays" type="number" min="1" max="365" value="${esc(s.alertDays)}"></div>
-        <div class="field"><label>Bakıma kaç km kala uyarı verilsin?</label><input id="setKm" type="number" min="0" value="${esc(s.kmAlert)}"></div>
-        <div class="field"><label>Kiralama bedelleri raporlara dahil edilsin mi?</label><select id="setLeasing"><option value="0">Hayır</option><option value="1" ${s.includeLeasing ? 'selected' : ''}>Evet (aylık kira × ay)</option></select></div>
-      </div><button class="btn" data-action="saveSettings">Ayarları Kaydet</button></div>
-      <div class="panel"><h2>Veri Yönetimi</h2>
-        <div class="notice ${Store.mode === 'desktop' ? 'ok' : ''}">${Store.mode === 'desktop'
-          ? `Masaüstü sürümü: veriler bu dosyada tutulur:<br><b>${esc(info.dataFile)}</b><br>Her gün otomatik yedek alınır (son 30 gün): ${esc(info.backupDir)}`
-          : 'Web sürümü: veriler yalnızca bu tarayıcıda (localStorage) tutulur. Tarayıcı verisini temizlemek veya başka bir tarayıcı kullanmak kayıtları göstermez. Düzenli JSON yedeği alın.'}</div>
-        <div class="actions">
-          <button class="btn secondary" data-action="backup">⬇ JSON Yedeği İndir</button>
-          <label class="btn secondary filelabel">⬆ JSON Yedeği Yükle<input type="file" id="importFile" accept=".json,application/json"></label>
-          ${Store.mode === 'desktop' ? '<button class="btn secondary" data-action="openFolder">📂 Veri Klasörünü Aç</button>' : ''}
-          <button class="btn danger" data-action="reset">Tüm Verileri Sıfırla</button>
-        </div>
-        <p style="margin-top:10px">Son JSON yedeği: ${state.lastBackup ? new Date(state.lastBackup).toLocaleString('tr-TR') : 'hiç alınmadı'}</p></div>
-      <div class="panel"><h2>İşlem Geçmişi (son 50)</h2>${state.audit.length ? `<table><thead><tr><th>Tarih</th><th>İşlem</th><th>Açıklama</th></tr></thead><tbody>${state.audit.slice(0, 50).map(a =>
-        `<tr><td>${new Date(a.date).toLocaleString('tr-TR')}</td><td>${esc(a.action)}</td><td>${esc(a.details)}</td></tr>`).join('')}</tbody></table>` : '<div class="empty">Henüz işlem yok.</div>'}</div>`;
+    const s = state.settings, ro = isAdmin() ? '' : 'disabled';
+    return heading('Ayarlar', 'Genel ayarlar, veri yönetimi ve işlem geçmişi.') +
+      `<div class="panel"><h2>Genel Ayarlar</h2>${isAdmin() ? '' : '<p>Ayarları yalnızca yönetici değiştirebilir.</p>'}<div class="formgrid">
+        <div class="field"><label>Şirket / Sistem Adı</label><input id="setCompany" value="${esc(s.company)}" ${ro}></div>
+        <div class="field"><label>Kaç gün önce uyarı verilsin? (1–365)</label><input id="setDays" type="number" min="1" max="365" value="${esc(s.alertDays)}" ${ro}></div>
+        <div class="field"><label>Bakıma kaç km kala uyarı verilsin?</label><input id="setKm" type="number" min="0" value="${esc(s.kmAlert)}" ${ro}></div>
+        <div class="field"><label>Kiralama bedelleri raporlara dahil edilsin mi?</label><select id="setLeasing" ${ro}><option value="0">Hayır</option><option value="1" ${s.includeLeasing ? 'selected' : ''}>Evet (aylık kira × ay)</option></select></div>
+      </div>${isAdmin() ? '<button class="btn" data-action="saveSettings">Ayarları Kaydet</button>' : ''}</div>
+      ${dataPanel()}
+      <div class="panel"><h2>İşlem Geçmişi (son 50)</h2><div id="auditBox">${auditTable()}</div></div>`;
+  }
+  function auditTable() {
+    if (!auditCache.length) return '<div class="empty">Yükleniyor veya henüz işlem yok.</div>';
+    const withUser = auditCache.some(a => a.user);
+    return `<table><thead><tr><th>Tarih</th>${withUser ? '<th>Kullanıcı</th>' : ''}<th>İşlem</th><th>Açıklama</th></tr></thead><tbody>${auditCache.map(a =>
+      `<tr><td>${new Date(a.date).toLocaleString('tr-TR')}</td>${withUser ? `<td>${esc(a.user || '—')}</td>` : ''}<td>${esc(a.action)}</td><td>${esc(moduleLabel(a.details))}</td></tr>`).join('')}</tbody></table>`;
+  }
+  // Denetim kaydındaki modül kimliğini (ör. "fuel • 34ABC") okunur ada çevirir
+  function moduleLabel(d) {
+    const s = String(d || ''), [first, ...rest] = s.split(' • ');
+    const m = mod(first);
+    return m ? [m.name, ...rest].join(' • ') : s;
+  }
+  async function refreshAudit() {
+    try { auditCache = await Store.loadAudit(50); } catch (e) { auditCache = []; }
+    const box = $('auditBox'); if (box) box.innerHTML = auditTable();
   }
 
   // ---------- Render ----------
   function render() {
     renderNav();
     $('companyName').textContent = state.settings.company;
-    $('modeLabel').textContent = Store.mode === 'desktop' ? 'Masaüstü sürümü • Veriler bilgisayarda dosyada saklanır' : 'Web sürümü • Veriler bu tarayıcıda saklanır';
+    $('modeLabel').textContent = Store.mode === 'cloud'
+      ? `☁️ Bulut veritabanı • ${Store.user ? Store.user.email : ''}${isAdmin() ? ' (yönetici)' : ''}`
+      : Store.mode === 'desktop' ? 'Yerel mod • Veriler bilgisayarda dosyada' : 'Yerel deneme modu • Veriler bu tarayıcıda';
+    $('logoutBtn').hidden = Store.mode !== 'cloud';
     $('clock').textContent = new Date().toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric', weekday: 'long' });
-    $('footer').textContent = Store.mode === 'desktop'
-      ? 'Araç Filo Yönetimi • Masaüstü • Günlük otomatik yedek açık'
-      : 'Araç Filo Yönetimi • Web • Verilerinizi düzenli olarak JSON yedeğiyle dışa aktarın';
+    $('footer').textContent = 'Araç Filo Yönetimi • ' + (Store.mode === 'cloud' ? 'Veriler Supabase veritabanında' : 'Yerel mod');
     const p = ui.page;
     $('view').innerHTML = p === 'dashboard' ? dashboard() : p === 'reports' ? reports() : p === 'alerts' ? alertsPage() : p === 'settings' ? settingsPage() : recordsPage(p);
     bindInputs();
+    if (p === 'settings') refreshAudit();
   }
 
   function bindInputs() {
@@ -374,12 +398,14 @@
   }
   function closeModal() { $('modalroot').innerHTML = ''; }
 
+  // Araç KM'si daha küçükse güncellenmiş araç kaydını döndürür
   function bumpVehicleKm(vid, km) {
     const v = vehicleById(vid);
-    if (v && km && Number(km) > (Number(v.km) || 0)) v.km = String(km);
+    if (v && km && Number(km) > (Number(v.km) || 0)) return { ...v, km: String(km) };
+    return null;
   }
 
-  function submitForm(id, old, form) {
+  async function submitForm(id, old, form) {
     const m = mod(id);
     const item = { ...old, id: old.id || uid() };
     for (const [k, v] of form) item[k] = String(v).trim();
@@ -391,26 +417,30 @@
       }
     }
     if (id === 'fuel' && !item.amount && item.liters && item.unitPrice) item.amount = (Number(item.liters) * Number(item.unitPrice)).toFixed(2);
-    if (['fuel', 'maintenance'].includes(id)) bumpVehicleKm(item.vehicle, item.km);
-    if (id === 'assignments') bumpVehicleKm(item.vehicle, item.returnKm || item.km);
-    const list = state.records[id], ix = list.findIndex(x => x.id === item.id);
-    if (ix >= 0) list[ix] = item; else list.push(item);
-    const label = (m.title && m.title(item)) || vehicleName(item.vehicle);
-    log(ix >= 0 ? 'Düzenleme' : 'Yeni kayıt', `${m.name} • ${label}`);
-    persist(); closeModal(); render(); toast('Kaydedildi');
+    let bumped = null;
+    if (['fuel', 'maintenance'].includes(id)) bumped = bumpVehicleKm(item.vehicle, item.km);
+    if (id === 'assignments') bumped = bumpVehicleKm(item.vehicle, item.returnKm || item.km);
+    const btn = document.querySelector('#recordform button[type=submit]'); if (btn) btn.disabled = true;
+    const ok = await run(async () => {
+      await Store.upsert(id, item);
+      if (bumped) await Store.upsert('vehicles', bumped);
+    }, 'Kaydedildi');
+    if (btn) btn.disabled = false;
+    if (!ok) return;
+    const put = (mid, it) => { const list = state.records[mid], ix = list.findIndex(x => x.id === it.id); if (ix >= 0) list[ix] = it; else list.push(it); };
+    put(id, item); if (bumped) put('vehicles', bumped);
+    closeModal(); render();
   }
 
   async function removeRecord(id, recordId) {
-    const m = mod(id);
     if (id === 'vehicles') {
       const linked = MODULES.filter(x => x.id !== 'vehicles' && state.records[x.id].some(r => r.vehicle === recordId)).map(x => x.name);
       if (linked.length) { alertDlg('Araç silinemiyor', 'Bu araca bağlı kayıtlar var: ' + linked.join(', ') + '. Önce bu kayıtları silin veya aracın durumunu "Pasif/Satıldı" yapın.'); return; }
     }
     if (!(await confirmDlg('Kaydı sil', 'Bu kayıt kalıcı olarak silinecek. Emin misiniz?', true))) return;
-    const rec = state.records[id].find(x => x.id === recordId);
+    if (!(await run(() => Store.remove(id, recordId), 'Silindi'))) return;
     state.records[id] = state.records[id].filter(x => x.id !== recordId);
-    log('Silme', `${m.name} • ${(m.title && rec && m.title(rec)) || vehicleName(rec && rec.vehicle)}`);
-    persist(); render(); toast('Silindi');
+    render();
   }
 
   // ---------- Dışa / içe aktarma ----------
@@ -434,13 +464,6 @@
     const range = ui.from || ui.to ? `_${ui.from || 'bas'}_${ui.to || 'son'}` : '';
     download(`filo_maliyet${range}.csv`, rows.map(r => r.map(csvCell).join(';')).join('\r\n'), 'text/csv;charset=utf-8');
   }
-  function exportJSON() {
-    state.lastBackup = new Date().toISOString();
-    log('Yedek', 'JSON yedeği indirildi');
-    persist();
-    download(`filo_yedek_${today()}.json`, JSON.stringify(state, null, 2), 'application/json');
-    render();
-  }
   function importJSON(e) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
@@ -450,11 +473,12 @@
         const obj = JSON.parse(reader.result);
         if (!obj || !obj.records || !Array.isArray(obj.records.vehicles)) throw new Error('Dosya bu uygulamanın yedek formatında değil.');
         const count = Object.values(obj.records).reduce((a, b) => a + (Array.isArray(b) ? b.length : 0), 0);
-        if (!(await confirmDlg('Yedeği geri yükle', `Yedekte ${obj.records.vehicles.length} araç ve toplam ${count} kayıt var. Mevcut TÜM veriler bu yedekle DEĞİŞTİRİLECEK. Devam edilsin mi?`, true))) return;
-        for (const m of MODULES) if (!Array.isArray(obj.records[m.id])) obj.records[m.id] = [];
-        state = { ...defaultState(), ...obj, settings: { ...defaultState().settings, ...(obj.settings || {}) }, audit: Array.isArray(obj.audit) ? obj.audit : [] };
-        log('Geri yükleme', file.name);
-        persist(); render(); toast('Yedek geri yüklendi');
+        const msg = Store.mode === 'cloud'
+          ? `Dosyada ${obj.records.vehicles.length} araç ve toplam ${count} kayıt var. Bu kayıtlar veritabanına eklenecek; aynı kimlikli kayıtların üzerine yazılacak. Devam edilsin mi?`
+          : `Dosyada ${obj.records.vehicles.length} araç ve toplam ${count} kayıt var. Mevcut kayıtlar bu dosyadakilerle DEĞİŞTİRİLECEK. Devam edilsin mi?`;
+        if (!(await confirmDlg('Veri aktar', msg, true))) return;
+        await run(async () => { const n = await Store.importAll(obj.records); applyLoaded(await Store.loadAll()); toast(n + ' kayıt aktarıldı'); });
+        render();
       } catch (err) {
         alertDlg('Yedek yüklenemedi', err.message);
       } finally { e.target.value = ''; }
@@ -462,21 +486,21 @@
     reader.readAsText(file);
   }
   async function resetAll() {
-    const v = await dialog({ title: 'Tüm verileri sıfırla', message: 'Bütün kayıtlar silinecek. Devam etmek için SİL yazın. (Önce JSON yedeği almanız önerilir.)', input: true, danger: true, okText: 'Sıfırla' });
+    const v = await dialog({ title: 'Tüm kayıtları sil', message: 'Bütün modüllerdeki kayıtlar kalıcı olarak silinecek. Devam etmek için SİL yazın.', input: true, danger: true, okText: 'Sil' });
     if (v === null) return;
     if (v.trim().toLocaleUpperCase('tr-TR') !== 'SİL') { toast('Onay metni hatalı, işlem iptal edildi.'); return; }
+    if (!(await run(() => Store.resetAll(), 'Tüm kayıtlar silindi'))) return;
     for (const m of MODULES) state.records[m.id] = [];
-    state.audit = []; log('Sıfırlama', 'Tüm veriler silindi');
-    persist(); render(); toast('Tüm veriler silindi');
+    render();
   }
-  function saveSettings() {
-    const s = state.settings;
+  async function saveSettings() {
+    const s = { ...state.settings };
     s.company = $('setCompany').value.trim() || 'Filo Yönetim Sistemi';
     s.alertDays = Math.max(1, Math.min(365, Number($('setDays').value) || 30));
     s.kmAlert = Math.max(0, Number($('setKm').value) || 0);
     s.includeLeasing = $('setLeasing').value === '1';
-    log('Ayar', 'Genel ayarlar güncellendi');
-    persist(); render(); toast('Ayarlar kaydedildi');
+    if (!(await run(() => Store.saveSettings(s), 'Ayarlar kaydedildi'))) return;
+    state.settings = s; render();
   }
 
   // ---------- Olay yönetimi (tek noktadan) ----------
@@ -497,7 +521,6 @@
       case 'costcsv': exportCostCSV(); break;
       case 'clear': ui.query = ''; ui.vehicle = ''; ui.sort = null; render(); break;
       case 'clearRange': ui.from = ''; ui.to = ''; render(); break;
-      case 'backup': exportJSON(); break;
       case 'reset': resetAll(); break;
       case 'saveSettings': saveSettings(); break;
       case 'openFolder': Store.openDataFolder(); break;
@@ -507,5 +530,56 @@
   $('menuBtn').addEventListener('click', () => $('sidebar').classList.toggle('open'));
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('modalback') && !document.querySelector('body > .modalback')) closeModal(); });
 
-  render();
+  $('logoutBtn').addEventListener('click', async () => {
+    if (!(await confirmDlg('Çıkış', 'Oturumu kapatmak istiyor musunuz?'))) return;
+    await Store.logout(); location.reload();
+  });
+
+  // ---------- Giriş ekranı ----------
+  function showLogin(errMsg) {
+    $('loginScreen').hidden = false;
+    $('loginError').textContent = errMsg || '';
+    $('loginEmail').focus();
+  }
+  $('loginForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = $('loginBtn'); btn.disabled = true; $('loginError').textContent = '';
+    try {
+      await Store.login($('loginEmail').value.trim(), $('loginPassword').value);
+      $('loginScreen').hidden = true;
+      await loadAndRender();
+      Store.onRemoteChange(remoteRefresh);
+    } catch (err) { $('loginError').textContent = err.message; }
+    finally { btn.disabled = false; }
+  });
+  $('forgotBtn').addEventListener('click', async () => {
+    const email = $('loginEmail').value.trim();
+    if (!email) { $('loginError').textContent = 'Önce e-posta adresinizi yazın.'; return; }
+    try { await Store.resetPassword(email); $('loginError').textContent = 'Şifre sıfırlama bağlantısı e-postanıza gönderildi.'; }
+    catch (err) { $('loginError').textContent = err.message; }
+  });
+
+  async function loadAndRender() {
+    busy(true);
+    try { applyLoaded(await Store.loadAll()); }
+    catch (err) { await alertDlg('Veriler yüklenemedi', err.message); }
+    finally { busy(false); }
+    render();
+  }
+
+  // Başka bir kullanıcı kayıt değiştirdiğinde ekranı tazele (form açıksa bekle)
+  async function remoteRefresh() {
+    if ($('modalback')) { setTimeout(remoteRefresh, 3000); return; }
+    try { applyLoaded(await Store.loadAll()); render(); } catch (e) { console.error(e); }
+  }
+
+  (async function boot() {
+    render();
+    try {
+      const r = await Store.init();
+      if (r.needLogin) { showLogin(); return; }
+      await loadAndRender();
+    } catch (err) { showLogin(err.message); return; }
+    Store.onRemoteChange(remoteRefresh);
+  })();
 })();

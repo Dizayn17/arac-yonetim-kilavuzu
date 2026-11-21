@@ -4,10 +4,14 @@ Araç kartları, zimmet, sürücüler, belge/poliçe takibi, yakıt, bakım, las
 
 Aynı kod iki şekilde çalışır:
 
-| Sürüm | Nasıl açılır | Veriler nerede durur |
-|---|---|---|
-| **Windows masaüstü** | `.exe` kurulum veya taşınabilir sürüm | `Belgeler\AracFiloYonetimi\filo-veri.json` (her gün otomatik yedek: `yedekler\`) |
-| **Web (internet)** | https://dizayn17.github.io/arac-yonetim-kilavuzu/ | Açan kişinin tarayıcısı (localStorage) |
+| Sürüm | Nasıl açılır |
+|---|---|
+| **Web (internet)** | https://dizayn17.github.io/arac-yonetim-kilavuzu/ |
+| **Windows masaüstü** | `.exe` kurulum veya taşınabilir sürüm (Releases) |
+
+**Veriler:** İki sürüm de aynı **Supabase (PostgreSQL) bulut veritabanını** kullanır. Kullanıcılar e-posta + şifre ile giriş yapar, değişiklikler herkese anında yansır, işlem geçmişi sunucuda tutulur. Kurulum: [docs/SUPABASE_KURULUM.md](docs/SUPABASE_KURULUM.md)
+
+> `app/config.js` boşsa uygulama yerel modda çalışır (masaüstünde dosya, web'de tarayıcı).
 
 📖 Ayrıntılı kullanım: [docs/KULLANIM_KILAVUZU.md](docs/KULLANIM_KILAVUZU.md)
 
@@ -62,7 +66,7 @@ Gerekli: [Node.js 20+](https://nodejs.org)
 
 İlk sefer için: **Settings → Pages → Source: GitHub Actions** seçili olmalı.
 
-⚠️ **Önemli:** Bu adres sadece *uygulamanın kendisini* dağıtır. Veriler sunucuya gitmez; her kullanıcının kendi tarayıcısında ayrı tutulur. Yani iki kişi aynı linki açarsa **aynı verileri görmez**. Bilgisayar değiştirmek için JSON yedeği indir → yeni yerde yükle.
+Supabase bağlıysa (`app/config.js` dolu) bu adresi açan herkes giriş yapıp aynı veritabanında çalışır.
 
 ### B. Şirket içi ağda (intranet)
 `app/` klasörü tamamen statik dosyadır; IIS, nginx veya herhangi bir web sunucusuna kopyalanabilir:
@@ -71,16 +75,16 @@ npm run web      # http://localhost:8080 (test için)
 ```
 Aynı veri paylaşımı kısıtı burada da geçerlidir.
 
-### C. Gerçek çok kullanıcılı kullanım
-Herkesin aynı verilerle, kullanıcı adı/şifreyle çalışması için **sunucu tarafı veritabanı ve kimlik doğrulama** gerekir (ör. Supabase, Firebase, Base44 veya şirket sunucusunda bir API). Depolama katmanı `app/storage.js` dosyasında ayrı tutulduğu için bu geçiş sadece o dosyanın değiştirilmesiyle yapılabilir.
+### C. Ortak veritabanı (Supabase)
+Herkesin aynı verilerle, kullanıcı adı/şifreyle çalışması için Supabase kurulumu yeterli: [docs/SUPABASE_KURULUM.md](docs/SUPABASE_KURULUM.md).
 
 ---
 
 ## Güvenlik ve veri notları
 
-- Uygulama giriş/şifre veya rol kontrolü **içermez**. Bilgisayara/tarayıcıya erişen herkes verileri görebilir.
+- Supabase modunda giriş zorunludur; erişim `filo_users` listesi ve satır düzeyi güvenlik (RLS) kurallarıyla sınırlanır. Yerel modda giriş yoktur.
 - Sürücü telefonları, ehliyet, ceza ve kaza bilgileri **kişisel veridir (KVKK)**. Web sürümünü ortak/kamuya açık bilgisayarlarda kullanmayın; yedek dosyalarını yetkisiz erişime kapalı bir yerde saklayın.
-- Web sürümü İçerik Güvenlik Politikası (CSP) ile dış kaynaklara bağlanmayı engeller; hiçbir veri dışarı gönderilmez.
+- İçerik Güvenlik Politikası (CSP) uygulamanın yalnızca kendi dosyalarına ve Supabase'e bağlanmasına izin verir.
 
 ## Proje yapısı
 
@@ -88,10 +92,13 @@ Herkesin aynı verilerle, kullanıcı adı/şifreyle çalışması için **sunuc
 app/            Web arayüzü (hem web hem masaüstü kullanır)
   index.html
   style.css
-  storage.js    Depolama katmanı (masaüstü: dosya, web: localStorage)
+  config.js     Supabase bağlantı bilgileri (URL + anon key)
+  storage.js    Depolama katmanı (Supabase / dosya / localStorage)
+  vendor/       supabase-js istemci kütüphanesi
   modules.js    Modül ve alan tanımları
   app.js        Uygulama mantığı
-main.js         Electron ana süreci (dosya kaydı, günlük yedek)
+main.js         Electron ana süreci
+supabase/schema.sql  Veritabanı tabloları, yetkiler (RLS), denetim tetikleyicileri
 preload.js      Arayüz ↔ dosya sistemi köprüsü
 docs/           Kullanım kılavuzu
 .github/workflows/
