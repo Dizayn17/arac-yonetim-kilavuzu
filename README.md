@@ -4,14 +4,13 @@ Araç kartları, zimmet, sürücüler, belge/poliçe takibi, yakıt, bakım, las
 
 Aynı kod iki şekilde çalışır:
 
-Uygulama iki şirket için ayrı kopyalar halinde yayınlanır. Her kopyanın **kendi logosu, kendi veritabanı ve kendi kullanıcıları** vardır.
+Uygulama şirket bazlı kopyalar halinde yayınlanır. Her kopyanın **kendi logosu, kendi veritabanı ve kendi kullanıcıları** vardır.
 
 | Şirket | Web | Windows (.exe) | Veritabanı (Supabase) |
 |---|---|---|---|
 | **Dardanel** | https://dizayn17.github.io/arac-yonetim-kilavuzu/dardanel/ | `AracFilo-Dardanel-Kurulum-….exe` | `arac-filo-yonetimi` |
-| **Tahsildaroğlu** | https://dizayn17.github.io/arac-yonetim-kilavuzu/tahsildaroglu/ | `AracFilo-Tahsildaroglu-Kurulum-….exe` | `arac-filo-tahsildaroglu` |
 
-Kök adres (https://dizayn17.github.io/arac-yonetim-kilavuzu/) şirket seçim ekranıdır. `.exe` dosyaları **Releases** bölümündedir.
+Kök adres (https://dizayn17.github.io/arac-yonetim-kilavuzu/) tek şirket varken doğrudan o kopyaya, birden fazla şirket varken şirket seçim ekranına gider. `.exe` dosyaları **Releases** bölümündedir.
 
 ### Marka yapısı
 Kod tek (`app/`), şirkete özel dosyalar `brands/<şirket>/` altındadır:
@@ -22,7 +21,7 @@ Kod tek (`app/`), şirkete özel dosyalar `brands/<şirket>/` altındadır:
 
 Yeni şirket eklemek için `brands/` altına aynı dosyalarla bir klasör aç, `release.yml` içindeki `brand:` listesine ekle ve Supabase'de `supabase/schema.sql` ile yeni bir proje kur.
 
-**Veriler:** İki sürüm de aynı **Supabase (PostgreSQL) bulut veritabanını** kullanır. Kullanıcılar e-posta + şifre ile giriş yapar, değişiklikler herkese anında yansır, işlem geçmişi sunucuda tutulur. Kurulum: [docs/SUPABASE_KURULUM.md](docs/SUPABASE_KURULUM.md)
+**Veriler:** Web ve masaüstü sürümleri aynı **Supabase (PostgreSQL) bulut veritabanını** kullanır. Kullanıcılar e-posta + şifre ile giriş yapar, değişiklikler herkese anında yansır, işlem geçmişi sunucuda tutulur. Kurulum: [docs/SUPABASE_KURULUM.md](docs/SUPABASE_KURULUM.md)
 
 > `app/config.js` boşsa uygulama yerel modda çalışır (masaüstünde dosya, web'de tarayıcı).
 
@@ -61,8 +60,7 @@ git clone https://github.com/Dizayn17/arac-yonetim-kilavuzu.git
 cd arac-yonetim-kilavuzu
 npm install
 npm start                       # Dardanel kopyasını açar
-npm run start:tahsildaroglu     # Tahsildaroğlu kopyasını açar
-npm run web                     # iki web kopyasını http://localhost:8080 adresinde açar
+npm run web                     # web kopyalarını http://localhost:8080 adresinde açar
 ```
 Gerekli: [Node.js 20+](https://nodejs.org)
 
