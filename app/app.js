@@ -217,7 +217,7 @@
     if (f.money) return val ? money(val) : '—';
     if (f.type === 'number' && val !== '' && val != null) return num(val);
     if (f.key === 'status' && val) {
-      const bad = ['Pasif', 'Satıldı', 'Ödenmedi', 'Açık', 'Sona Erdi', 'İptal'], warn = ['Serviste', 'Planlandı', 'Devam Ediyor', 'Yenilenecek', 'Eksperde', 'Onay Bekliyor', 'İtiraz Edildi', 'Talep'];
+      const bad = ['Pasif', 'Satıldı', 'Pert', 'Ödenmedi', 'Açık', 'Sona Erdi', 'İptal'], warn = ['Boşta', 'Serviste', 'Planlandı', 'Devam Ediyor', 'Yenilenecek', 'Eksperde', 'Onay Bekliyor', 'İtiraz Edildi', 'Talep'];
       return `<span class="pill ${bad.includes(val) ? 'bad' : warn.includes(val) ? 'warn' : ''}">${esc(val)}</span>`;
     }
     return esc(val || '—');
@@ -238,7 +238,8 @@
     const m = mod(id), items = filteredItems(id), total = state.records[id].length;
     const filtered = items.length !== total;
     let h = heading(m.name, `${items.length} / ${total} kayıt görüntüleniyor`,
-      `<button class="btn secondary" data-action="csv" data-module="${id}">⬇ ${filtered ? 'Görünenleri' : 'Tümünü'} CSV</button>
+      `${id === 'vehicles' && isAdmin() ? '<button class="btn secondary" data-action="excelImport">📥 Excel\'den Aktar</button>' : ''}
+       <button class="btn secondary" data-action="csv" data-module="${id}">⬇ ${filtered ? 'Görünenleri' : 'Tümünü'} CSV</button>
        <button class="btn" data-action="new" data-module="${id}">+ Yeni Kayıt</button>`);
     const hasVehicle = m.fields.some(f => f.type === 'vehicle');
     h += `<section class="panel"><div class="toolbar">
@@ -287,6 +288,7 @@
       return `<div class="panel"><h2>Veri Yönetimi</h2>
         <div class="notice ok">☁️ Veriler Supabase bulut veritabanında tutulur. Kaydettiğiniz her değişiklik anında sunucuya yazılır ve diğer kullanıcılara canlı yansır; ayrıca yedek almanıza gerek yoktur.</div>
         ${isAdmin() ? `<div class="actions">
+          <button class="btn" data-action="excelImport">📥 Excel'den Araç Listesi Aktar</button>
           <label class="btn secondary filelabel">⬆ Eski yedekten veri aktar (JSON)<input type="file" id="importFile" accept=".json,application/json"></label>
           <button class="btn danger" data-action="reset">Tüm Kayıtları Sil</button></div>
           <p style="margin-top:10px">İçe aktarma, eski tarayıcı/masaüstü sürümünden indirilmiş JSON dosyasındaki kayıtları veritabanına ekler (aynı kimlikli kayıtların üzerine yazar).</p>`
@@ -299,6 +301,7 @@
         : 'Yerel deneme modu: Supabase bağlantısı tanımlanmadığı için veriler bu tarayıcıda tutuluyor.'}
         Ortak bulut veritabanını kullanmak için <b>config.js</b> dosyasına Supabase bilgilerini girin.</div>
       <div class="actions">
+        <button class="btn" data-action="excelImport">📥 Excel'den Araç Listesi Aktar</button>
         <label class="btn secondary filelabel">⬆ JSON dosyasından aktar<input type="file" id="importFile" accept=".json,application/json"></label>
         ${Store.mode === 'desktop' ? '<button class="btn secondary" data-action="openFolder">📂 Veri Klasörünü Aç</button>' : ''}
         <button class="btn danger" data-action="reset">Tüm Kayıtları Sil</button></div></div>`;
@@ -509,6 +512,120 @@
     state.settings = s; render();
   }
 
+  // ---------- Excel içe aktarma ----------
+  function loadXlsxLib() {
+    if (window.XLSX) return Promise.resolve();
+    return new Promise((res, rej) => {
+      const sc = document.createElement('script');
+      sc.src = 'vendor/xlsx.full.min.js';
+      sc.onload = res; sc.onerror = () => rej(new Error('Excel okuyucu yüklenemedi.'));
+      document.head.appendChild(sc);
+    });
+  }
+  const IMPORT_PARTS = [
+    ['documents', 'Muayene bitiş tarihleri', 'Belge ve Süre Takibi'],
+    ['drivers', 'Kullanıcılar (sürücü kartı)', 'Personel ve Sürücüler'],
+    ['assignments', 'Zimmetler (kim hangi aracı kullanıyor)', 'Araç Zimmet Yönetimi'],
+    ['leasing', 'Kiralama sözleşmeleri', 'Kiralama ve Leasing'],
+    ['purchases', 'Satış tarihleri', 'Satın Alma ve Araç Satışı']
+  ];
+
+  function openExcelImport() {
+    if (!isAdmin()) { alertDlg('Yetki gerekli', 'Excel içe aktarma yalnızca yöneticiye açıktır.'); return; }
+    const imp = { wb: null, fileName: '', sheet: '', mods: Object.fromEntries(IMPORT_PARTS.map(p => [p[0], true])), plan: null, busy: false };
+    $('modalroot').innerHTML = `<div class="modalback" id="modalback"><div class="modal wide">
+      <div class="heading"><div><h2>📥 Excel'den Araç Listesi Aktar</h2><p>Araç listesi dosyasını seçin; önce ön izleme gösterilir, onayınızdan sonra yazılır.</p></div>
+      <button class="btn secondary small" data-close>✕ Kapat</button></div><div id="impBody"></div></div></div>`;
+    const back = $('modalback');
+    back.addEventListener('click', e => { if ((e.target === back || e.target.hasAttribute('data-close')) && !imp.busy) closeModal(); });
+
+    const body = () => $('impBody');
+    function step1(err) {
+      body().innerHTML = `
+        <label class="dropzone" id="impDrop"><input type="file" id="impFile" accept=".xlsx,.xls,.xlsm">
+          <b>Excel dosyasını seçin veya buraya sürükleyin</b><span class="muted">.xlsx — her ay ayrı sayfa olabilir; en yeni sayfa otomatik seçilir</span></label>
+        ${err ? `<div class="notice">${esc(err)}</div>` : ''}
+        <details class="muted" style="margin-top:12px"><summary>Beklenen sütunlar</summary><p style="margin-top:8px">${Object.values(FiloImporter.LABELS).map(esc).join(' · ')}</p>
+        <p style="margin-top:6px">Sütun sırası önemli değildir; başlık adıyla eşleştirilir. Eşleşme <b>plakaya</b> göre yapılır: aynı dosyayı tekrar yüklemek kopya oluşturmaz, dosyada boş bırakılan bir alan mevcut veriyi silmez.</p></details>`;
+      const inp = $('impFile'), drop = $('impDrop');
+      inp.addEventListener('change', () => inp.files[0] && readFile(inp.files[0]));
+      drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('over'); });
+      drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+      drop.addEventListener('drop', e => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) readFile(e.dataTransfer.files[0]); });
+    }
+    async function readFile(file) {
+      body().innerHTML = '<div class="empty">Dosya okunuyor…</div>';
+      try {
+        await loadXlsxLib();
+        const buf = await file.arrayBuffer();
+        imp.wb = XLSX.read(buf, { type: 'array' });
+        imp.fileName = file.name;
+        imp.sheet = imp.wb.SheetNames[imp.wb.SheetNames.length - 1];
+        preview();
+      } catch (err) { console.error(err); step1('Dosya okunamadı: ' + err.message); }
+    }
+    function computePlan() {
+      const rows = XLSX.utils.sheet_to_json(imp.wb.Sheets[imp.sheet], { header: 1, raw: true, defval: null });
+      imp.plan = FiloImporter.buildPlan(rows, state, { modules: imp.mods, sheetName: imp.sheet });
+    }
+    function preview() {
+      computePlan();
+      const pl = imp.plan, s = pl.summary || {};
+      const count = m => pl.ops ? pl.ops.filter(o => o.module === m).length : 0;
+      body().innerHTML = `
+        <div class="toolbar"><b>${esc(imp.fileName)}</b>
+          <label class="muted">Sayfa</label><select id="impSheet">${imp.wb.SheetNames.map(n => `<option ${n === imp.sheet ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
+          <button class="btn secondary small" data-imp="other">Başka dosya</button></div>
+        ${pl.error ? `<div class="notice">${esc(pl.error)}</div>` : `
+        ${pl.missingColumns.length ? `<div class="notice">Bulunamayan sütunlar (bu bilgiler aktarılmaz): ${pl.missingColumns.map(esc).join(', ')}</div>` : ''}
+        <div class="cards">
+          <div class="card"><div class="label">Dosyadaki araç</div><div class="value">${s.rows}</div></div>
+          <div class="card"><div class="label">Yeni eklenecek</div><div class="value">${s.vehiclesNew}</div></div>
+          <div class="card"><div class="label">Güncellenecek</div><div class="value">${s.vehiclesUpdated}</div></div>
+          <div class="card"><div class="label">Değişmeyen</div><div class="value">${s.vehiclesSame}</div></div>
+        </div>
+        <div class="panel" style="padding:12px 16px"><h2 style="margin-bottom:6px">Araçla birlikte aktarılacaklar</h2>
+          ${IMPORT_PARTS.map(([k, label, target]) => `<label class="checkrow"><input type="checkbox" data-mod="${k}" ${imp.mods[k] ? 'checked' : ''}>
+            <span>${esc(label)} <span class="muted">→ ${esc(target)}</span></span><b>${imp.mods[k] ? count(k) + ' kayıt' : '—'}</b></label>`).join('')}
+          ${s.assignmentsClosed ? `<p style="margin-top:6px">Kullanıcısı değişen ${s.assignmentsClosed} aracın eski zimmeti "İade Edildi" olarak kapatılacak.</p>` : ''}
+        </div>
+        ${pl.notInFile.length ? `<div class="notice">Sistemde olup bu sayfada bulunmayan ${pl.notInFile.length} araç var; bunlara dokunulmaz: ${pl.notInFile.slice(0, 15).map(esc).join(', ')}${pl.notInFile.length > 15 ? '…' : ''}</div>` : ''}
+        ${pl.warnings.length ? `<details class="notice" ${pl.warnings.length <= 5 ? 'open' : ''}><summary>${pl.warnings.length} uyarı</summary><ul style="margin:8px 0 0;padding-left:18px">${pl.warnings.slice(0, 100).map(w => `<li>${esc(w)}</li>`).join('')}</ul></details>` : ''}
+        <div class="actions" style="margin-top:14px">
+          <button class="btn" data-imp="apply" ${pl.ops.length ? '' : 'disabled'}>${pl.ops.length ? `İçe Aktar (${pl.ops.length} kayıt)` : 'Değişiklik yok'}</button>
+          <button class="btn secondary" data-close>Vazgeç</button></div>`}`;
+      $('impSheet').addEventListener('change', e => { imp.sheet = e.target.value; preview(); });
+      body().querySelectorAll('[data-mod]').forEach(cb => cb.addEventListener('change', () => { imp.mods[cb.dataset.mod] = cb.checked; preview(); }));
+    }
+    async function apply() {
+      const n = imp.plan.ops.length;
+      if (!(await confirmDlg('İçe aktarmayı onayla', `"${imp.sheet}" sayfasından ${n} kayıt yazılacak (${imp.plan.summary.vehiclesNew} yeni, ${imp.plan.summary.vehiclesUpdated} güncellenen araç). Devam edilsin mi?`))) return;
+      imp.busy = true;
+      body().innerHTML = '<div class="empty"><b id="impProg">Yazılıyor… 0 / ' + n + '</b><div class="bar" style="margin-top:12px"><i id="impBar" style="width:0%"></i></div></div>';
+      try {
+        await Store.bulkUpsert(imp.plan.ops, (done, total) => {
+          $('impProg').textContent = `Yazılıyor… ${done} / ${total}`;
+          $('impBar').style.width = (done / total * 100).toFixed(0) + '%';
+        });
+        applyLoaded(await Store.loadAll());
+        const s = imp.plan.summary;
+        body().innerHTML = `<div class="notice ok">✅ İçe aktarma tamamlandı: ${s.vehiclesNew} yeni araç, ${s.vehiclesUpdated} güncellenen araç, toplam ${n} kayıt yazıldı.</div>
+          <div class="actions"><button class="btn" data-close>Kapat</button><button class="btn secondary" data-imp="again">Başka sayfa aktar</button></div>`;
+        render();
+      } catch (err) {
+        body().innerHTML = `<div class="notice">İçe aktarma tamamlanamadı: ${esc(err.message)}</div><div class="actions"><button class="btn secondary" data-imp="again">Geri dön</button><button class="btn secondary" data-close>Kapat</button></div>`;
+        try { applyLoaded(await Store.loadAll()); render(); } catch (e) { /* yoksay */ }
+      } finally { imp.busy = false; }
+    }
+    $('impBody').addEventListener('click', e => {
+      const a = e.target.closest('[data-imp]'); if (!a) return;
+      if (a.dataset.imp === 'apply') apply();
+      else if (a.dataset.imp === 'other') { imp.wb = null; step1(); }
+      else if (a.dataset.imp === 'again') { if (imp.wb) preview(); else step1(); }
+    });
+    step1();
+  }
+
   // ---------- Olay yönetimi (tek noktadan) ----------
   document.addEventListener('click', e => {
     const pageBtn = e.target.closest('[data-page]');
@@ -531,6 +648,7 @@
       case 'saveSettings': saveSettings(); break;
       case 'openFolder': Store.openDataFolder(); break;
       case 'print': window.print(); break;
+      case 'excelImport': openExcelImport(); break;
     }
   });
   $('menuBtn').addEventListener('click', () => $('sidebar').classList.toggle('open'));

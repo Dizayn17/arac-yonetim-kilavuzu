@@ -79,7 +79,23 @@ Tarih eşiği varsayılan olarak 30 gün, KM eşiği 1.000 km'dir; Ayarlar'dan d
 - Aynı gideri iki modüle girmeyin (ör. sigorta primini hem Sigorta'ya hem Maliyet'e). Aksi halde rapor bunu iki kez toplar.
 - **Maliyet CSV** ve **Yazdır / PDF** ile dışa aktarabilirsiniz.
 
-## 7. Yedekleme ve geri yükleme
+## 7. Excel'den araç listesi aktarma
+
+**Araç Kartları → 📥 Excel'den Aktar** (veya Ayarlar → Veri Yönetimi). Yalnızca yönetici kullanabilir.
+
+1. Araç listesi Excel dosyasını seçin. Her ay ayrı sayfa olabilir; en yeni (son) sayfa otomatik seçilir, isterseniz başka ayı seçebilirsiniz.
+2. Ön izlemede kaç aracın yeni, güncellenecek ve değişmeyen olduğunu görürsünüz. Araçla birlikte muayene tarihleri, sürücüler, zimmetler, kiralama sözleşmeleri ve satışlar da aktarılır; istemediklerinizin işaretini kaldırın.
+3. **İçe Aktar** ile onaylayın.
+
+Kurallar:
+- Eşleşme **plakaya** göre yapılır. Aynı dosyayı tekrar yüklemek kopya oluşturmaz; sadece değişen kayıtlar yazılır.
+- Excel'de boş bırakılan alan sistemdeki mevcut bilgiyi silmez. KM geriye gitmez.
+- Kullanıcısı değişen aracın eski zimmeti "İade Edildi" olarak kapatılır, yeni zimmet açılır. Satılmış/pert araçlara zimmet açılmaz.
+- Sistemde olup dosyada olmayan araçlara dokunulmaz (ön izlemede listelenir).
+- Durum eşleştirmesi: KULLANIMDA → Aktif, SATILDI → Satıldı, SANCAKTEPE / BOŞTA → Boşta, PERTE ÇIKTI → Pert, İade edildi → Pasif. Excel'deki asıl yazı "Durum Detayı" alanında saklanır.
+- Özmal → Şirket, Kiralık → Kiralık. Yakıt türü MODEL DETAYI içindeki "Dizel / Benzin / Hibrit" ifadesinden tahmin edilir.
+
+## 8. Yedekleme ve geri yükleme
 
 - **JSON Yedeği İndir:** Tüm kayıtları, ayarları ve işlem geçmişini tek dosyada indirir.
 - **JSON Yedeği Yükle:** Yüklemeden önce yedekteki kayıt sayısını gösterir. Onay verirseniz **mevcut tüm veriler yedekle değiştirilir** (birleştirme yapılmaz).

@@ -137,6 +137,21 @@
         return total;
       },
 
+      // Çok sayıda kaydı paketler halinde yazar (yalnızca yönetici). ops: [{ module, item }]
+      async bulkUpsert(ops, onProgress) {
+        if (S.role !== 'admin') throw new Error('Toplu içe aktarma yalnızca yönetici tarafından yapılabilir.');
+        const rows = ops.map(o => ({ id: String(o.item.id), module: o.module, data: o.item }));
+        let done = 0;
+        for (let i = 0; i < rows.length; i += 300) {
+          const chunk = rows.slice(i, i + 300);
+          const { error } = await sb.rpc('filo_import', { payload: chunk });
+          if (error) throw new Error(error.message + (done ? ` (${done} kayıt yazıldıktan sonra durdu; aynı dosyayı tekrar yüklemek güvenlidir)` : ''));
+          done += chunk.length;
+          if (onProgress) onProgress(done, rows.length);
+        }
+        return done;
+      },
+
       async resetAll() {
         const { error } = await sb.rpc('filo_reset');
         if (error) throw new Error(error.message);
@@ -191,6 +206,16 @@
         let n = 0;
         for (const [m, list] of Object.entries(records)) if (Array.isArray(list)) { doc.records[m] = list; n += list.length; }
         log('İçe aktarma', n + ' kayıt aktarıldı'); write(); return n;
+      },
+      async bulkUpsert(ops, onProgress) {
+        for (const { module, item } of ops) {
+          const list = doc.records[module] = doc.records[module] || [];
+          const ix = list.findIndex(x => x.id === item.id);
+          if (ix >= 0) list[ix] = item; else list.push(item);
+        }
+        log('İçe aktarma', ops.length + ' kayıt aktarıldı'); write();
+        if (onProgress) onProgress(ops.length, ops.length);
+        return ops.length;
       },
       async resetAll() { doc.records = {}; log('Sıfırlama', 'Tüm kayıtlar silindi'); write(); },
       onRemoteChange() {},
