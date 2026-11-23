@@ -21,7 +21,7 @@
       F('branch', 'Bölge / Şube', 'text', { list: true }),
       F('usingCompany', 'Kullanan Firma'),
       F('regOwner', 'Ruhsat Sahibi'),
-      F('regDate', 'Tescil Tarihi', 'date'),
+      F('regDate', 'Ruhsat Tarihi', 'date'),
       F('licenseSerial', 'Ruhsat Seri No'),
       F('vin', 'Şasi Numarası'),
       S('fuel', 'Yakıt Türü', 'Benzin|Dizel|LPG|Hibrit|Elektrik'),

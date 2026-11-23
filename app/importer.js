@@ -13,7 +13,7 @@
   const COLUMNS = {
     plate: ['plaka'], status: ['güncel durum', 'durum'], saleDate: ['satış tarihleri', 'satış tarihi'],
     branch: ['bölge'], fuelCard: ['yakıt'], usingCompany: ['kullanan firma'], regOwner: ['ruhsat sahibi'],
-    regDate: ['tescil tarihi'], brand: ['marka'], model: ['model'], modelDetail: ['model detayı'],
+    regDate: ['ruhsat tarihi', 'tescil tarihi'], brand: ['marka'], model: ['model'], modelDetail: ['model detayı'],
     vclass: ['binek-ticari', 'binek ticari'], year: ['araç yılı', 'model yılı'], km: { prefix: 'km' },
     licenseSerial: ['ruhsat seri no'], vin: ['şasi no'], inspectionEnd: ['muayene bitiş tarihi'],
     person: ['kullanıcı'], sicil: ['sicil no'], title: ['görevi'], ownership: ['mülkiyet türü'],
@@ -22,7 +22,7 @@
   };
   const LABELS = {
     plate: 'Plaka', status: 'Güncel Durum', saleDate: 'Satış Tarihleri', branch: 'Bölge', fuelCard: 'Yakıt',
-    usingCompany: 'Kullanan Firma', regOwner: 'Ruhsat Sahibi', regDate: 'Tescil Tarihi', brand: 'Marka', model: 'Model',
+    usingCompany: 'Kullanan Firma', regOwner: 'Ruhsat Sahibi', regDate: 'Ruhsat Tarihi', brand: 'Marka', model: 'Model',
     modelDetail: 'MODEL DETAYI', vclass: 'Binek-Ticari', year: 'Araç Yılı', km: 'KM', licenseSerial: 'Ruhsat Seri No',
     vin: 'Şasi No', inspectionEnd: 'Muayene Bitiş Tarihi', person: 'Kullanıcı', sicil: 'Sicil No', title: 'Görevi',
     ownership: 'Mülkiyet Türü', leaseCompany: 'Kiralama Şirketi', leaseStart: 'Kira Başlangıç', leaseEnd: 'Kira Bitiş',
